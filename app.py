@@ -2,7 +2,7 @@ from dash import Dash, html, dcc, Input, Output
 import pandas as pd
 import numpy as np
 
-df = pd.read_csv(
+raw_city_stats = pd.read_csv(
     '/Users/Scott/Desktop/DATA/SORT/CodingProgrammingPython/digital_nomad_city_ranking/city_stats.csv')
 
 time_zone_df = pd.read_csv(
@@ -16,41 +16,39 @@ app = Dash(__name__)
 
 
 @app.callback(
-    Output('current_datatable', 'data'),
+    Output('current_datatable', 'children'),
     Input('safety', 'value'),
-    Input('timezone', 'value'),
     Input('COL', 'value'),
+    Input('internet_speed', 'value'),
 )
-def update_data_table_with_ranking_factors(safety, timezone, COL):
-    print(df)
-
-    print("printing df.loc[:]")
-    print(df.iloc[:, 1:])
-    df.loc[:, 'Score'] = np.average(
-        a=df.iloc[:, 1:], axis=1, weights=[safety, timezone, COL])
-    print(df)
-    return df.sort_values('Score', ascending=False)
-
-
-updated_datatable = update_data_table_with_ranking_factors(2, 3, 1)
-
-
-def generate_table(dataframe, max_rows=10):
+def update_data_table_with_ranking_factors(safety, COL, internet_speed, max_rows=10):
+    print("printing raw_city_stats.iloc[:]")
+    print(raw_city_stats.iloc[:])
+    print("printing raw_city_stats.iloc[:, 1:]")
+    print(raw_city_stats.iloc[:, 1:])
+    weighted_city_stats = raw_city_stats.copy()
+    weighted_city_stats.loc[:, 'Score'] = np.average(
+        a=weighted_city_stats.iloc[:, 1:], axis=1, weights=[safety, COL, internet_speed]).round(2)
+    print(weighted_city_stats)
+    sorted_weighted_city_stats = weighted_city_stats.sort_values(
+        'Score', ascending=False)
     return html.Table([
         html.Thead(
-            html.Tr([html.Th(col) for col in dataframe.columns])
+            html.Tr([html.Th(col)
+                    for col in sorted_weighted_city_stats.columns])
         ),
         html.Tbody([
             html.Tr([
-                html.Td(dataframe.iloc[i][col]) for col in dataframe.columns
-            ]) for i in range(min(len(dataframe), max_rows))
+                html.Td(sorted_weighted_city_stats.iloc[i][col]) for col in sorted_weighted_city_stats.columns
+            ]) for i in range(min(len(sorted_weighted_city_stats), max_rows))
         ])
     ])
-
 
 # Have drop-down add columns to the dataframe and calculate a new score column to rank them
 # INTERNET SPEED
 # Flight Cost
+
+
 app.layout = html.Div([
     html.H4(children='Remote City Picker'),
     html.Div(children=[
@@ -60,25 +58,13 @@ app.layout = html.Div([
         ], style={'padding': 10, 'flex': 2}),
 
         html.Div(children=[
-            html.Label('Timezone'),
-            dcc.Slider(
-                id='timezone',
-                min=0,
-                max=10,
-                marks={i: f'Label {i}' if i ==
-                       0 else str(i) for i in range(0, 10)},
-                value=5,
-            ),
-        ], style={'padding': 10, 'flex': 2}),
-
-        html.Div(children=[
             html.Label('Safety'),
             dcc.Slider(
                 id='safety',
                 min=0,
                 max=10,
-                marks={i: f'Label {i}' if i ==
-                       0 else str(i) for i in range(0, 10)},
+                marks={i: f'{i}Important' if i ==
+                       10 else str(i) for i in range(0, 11)},
                 value=5,
             ),
         ], style={'padding': 10, 'flex': 2}),
@@ -90,14 +76,26 @@ app.layout = html.Div([
                 id='COL',
                 min=0,
                 max=10,
-                marks={i: f'Label {i}' if i ==
-                       0 else str(i) for i in range(0, 10)},
+                marks={i: f'{i}Important' if i ==
+                       10 else str(i) for i in range(0, 11)},
+                value=5,
+            ),
+        ], style={'padding': 10, 'flex': 2}),
+
+        html.Div(children=[
+            html.Label('Internet Speed'),
+            dcc.Slider(
+                id='internet_speed',
+                min=0,
+                max=10,
+                marks={i: f'{i}Important' if i ==
+                       10 else str(i) for i in range(0, 11)},
                 value=5,
             ),
         ], style={'padding': 10, 'flex': 2}),
     ], style={'display': 'flex', 'flex-direction': 'row'}),
 
-    html.Div(generate_table(updated_datatable))
+    html.Div(id='current_datatable')
 
 ])
 
